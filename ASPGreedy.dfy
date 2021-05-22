@@ -61,6 +61,7 @@ predicate method overlappingActivities(a1: Activity, a2: Activity)
 predicate disjointActivitiesSeq(activities: seq<Activity>)
     requires validActivitiesSeq(activities)
 {
+    distinctActivitiesSeq(activities) &&
     forall i1, i2 :: 0 <= i1 < i2 < |activities| ==> !overlappingActivities(activities[i1], activities[i2])
 }
 
@@ -69,7 +70,7 @@ predicate isSolution(takenActivities: seq<Activity>, activities: seq<Activity>)
     requires validActivitiesSeq(activities)
 {
     // Intrebare: fac verificarea pentru multime de elemente disticte aici sau in <disjointActivitiesSeq>
-    disjointActivitiesSeq(takenActivities) && //|takenActivities| <= |activities| &&
+    disjointActivitiesSeq(takenActivities) &&
     forall act :: act in takenActivities ==> act in activities
 }
 
@@ -94,14 +95,22 @@ lemma emptySolutionForEmptyEntry(takenActivities: seq<Activity>, activities: seq
     ensures optimalSolution(takenActivities, activities)
 {
     assert isSolution(takenActivities, activities);
-    assert !exists sol :: sol != [] && validActivitiesSeq(sol) && isSolution(sol, activities);
-    assert exists sol :: validActivitiesSeq(sol) && isSolution(sol, []) && castig(takenActivities) <= castig(sol);
-    assert exists sol :: sol == [] && isSolution(sol, []);
-    assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities) ==> castig(takenActivities) >= castig(sol);
+    // !!! pentru a 
+    forall sol:seq<Activity> | validActivitiesSeq(sol) && isSolution(sol, activities)
+    ensures sol == []
+    {
+        if (sol != [])
+        {
+            var x := sol[0];
+            assert x in activities;
+            assert false;
+        }
+    }
 }
 
-// Problema: momentan functioneaza, dar e posibil sa apara probleme dupa adaugarea conditiilor pentru multimi de elemente distincte pe <takenActivities> si <activities>
-lemma leadsToOptimal(takenActivities: seq<Activity>, activities: seq<Activity>, index: int)
+    // Problema: momentan functioneaza, dar e posibil sa apara probleme dupa adaugarea conditiilor pentru multimi de
+// elemente distincte pe <takenActivities> si <activities>
+lemma leadsToOptimalWithTaking(takenActivities: seq<Activity>, activities: seq<Activity>, index: int)
     requires |activities| > 0
     requires 0 <= index < |activities|
     requires validActivitiesSeq(takenActivities)
@@ -113,41 +122,36 @@ lemma leadsToOptimal(takenActivities: seq<Activity>, activities: seq<Activity>, 
     requires forall i :: 0 <= i < |takenActivities| ==> !overlappingActivities(takenActivities[i], activities[index])
     ensures optimalSolution(takenActivities+[activities[index]], activities[..index+1])
 {
-    //TO DO revazut predicate si modificat ~ DONE
-    // assert validActivitiesSeq(takenActivities+[activities[index]]);
-    // assert validActivitiesSeq(activities[..index]);
-    // assert disjointActivitiesSeq(takenActivities+[activities[index]]);
     assert isSolution(takenActivities+[activities[index]], activities[..index+1]);
     assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index]) ==> |takenActivities| >= |sol|;
     assert |takenActivities + [activities[index]]| == |takenActivities| + 1;
     assert optimalSolution(takenActivities, activities[..index]);
     assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index]) ==> |sol| <= |takenActivities|;
-    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
-            ==> disjointActivitiesSeq(sol[..k] + sol[k+1..]);
-    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
-            ==> isSolution(sol[..k] + sol[k+1..], activities[..index]);
+    // de ce nu merge daca nu repet assertul urmator de 2 ori?
+    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
+            && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
+        ==> disjointActivitiesSeq(sol[..k] + sol[k+1..]);
+    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
+            && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
+        ==> disjointActivitiesSeq(sol[..k] + sol[k+1..]);
+    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
+            && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
+        ==> forall act :: act in sol[..k] + sol[k+1..] ==> act in activities[..index];
+    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
+            && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
+        ==> isSolution(sol[..k] + sol[k+1..], activities[..index]);
     assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) 
-            ==> activities[index] in sol || activities[index] !in sol;
-    // assert |takenActivities| <= |activities[..index]|;
-    // assert |takenActivities + [activities[index]]| <= |activities[..index+1]|;
-    // assert |takenActivities| + 1 <= |activities[..index+1]|;
-    // assert forall sol :: validActivitiesSeq(sol) && disjointActivitiesSeq(sol) && |sol| <= |activities[..index+1]| && forall act :: act in sol ==> act in activities[..index+1] 
-    //         ==> |sol| <= |activities[..index+1]|;
-    // assert forall sol :: validActivitiesSeq(sol) && disjointActivitiesSeq(sol) && |sol| <= |activities[..index+1]| && forall act :: act in sol ==> act in activities[..index+1] 
-    //         ==> |sol| <= |takenActivities| + 1;
-    // assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) 
-    //         ==> |sol| <= |activities[..index+1]|;
+        ==> activities[index] in sol || activities[index] !in sol;
     assert exists sol :: (validActivitiesSeq(sol) && isSolution(sol, activities[..index]) 
-            ==> |sol| > |takenActivities|);
+        ==> |sol| > |takenActivities|);
     assert exists sol :: (validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) 
-            ==> |sol| >= |takenActivities| + 1);
+        ==> |sol| >= |takenActivities| + 1);
     assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) 
-            ==> |sol| <= |takenActivities| + 1;
+        ==> |sol| <= |takenActivities| + 1;
     assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) 
-            ==> |takenActivities + [activities[index]]| >= |sol|;
+        ==> |takenActivities + [activities[index]]| >= |sol|;
 }
 
-// de redenumit: "leadsToOptimalWithoutTaking" ~ DONE
 lemma leadsToOptimalWithoutTaking(takenActivities: seq<Activity>, activities: seq<Activity>, index: int)
     requires |activities| > 0
     requires 0 <= index < |activities|
@@ -159,7 +163,58 @@ lemma leadsToOptimalWithoutTaking(takenActivities: seq<Activity>, activities: se
     requires !canBeTaken(takenActivities, activities[index])
     ensures optimalSolution(takenActivities, activities[..index+1])
 {
-    
+    assert isSolution(takenActivities, activities[..index+1]);
+    forall sol: seq<Activity> | validActivitiesSeq(sol) && optimalSolution(sol, activities[..index+1])
+    ensures castig(sol) <= castig(takenActivities)
+    {
+        if activities[index] in sol
+        {
+            var k :| 0 <= k < |sol| && sol[k] == activities[index];
+            var solWithoutK := []; // sol - ultima activitate
+            assert distinctActivitiesSeq(sol);
+            assume forall i :: 0 <= i < |sol| ==> sol[i] in activities;
+            if k == 0
+            {
+                assert [sol[k]] + sol[k+1..] == sol;
+                solWithoutK := sol[k+1..];
+            }
+            else
+            {
+                assert |sol[..k]| == k;
+                assert forall i :: 0 <= i < k ==> sol[i] in sol;
+                assert sol[k] in sol;
+                assert |sol[k+1..]| == |sol| - (k + 1);
+                if k == |sol|-1
+                {
+                    assert sol[..k] + [sol[k]] == sol;
+                    var solWithoutK := sol[..k];
+                }
+                else
+                {
+                    assert forall i :: k+1 <= i < |sol| ==> sol[i] in sol;
+                    assert sol[..k] + [sol[k]] + sol[k+1..] == sol;
+                    var solWithoutK := sol[..k] + sol[k+1..];
+                }
+            }
+            assert isSolution(solWithoutK, activities[..index]);
+            // Problema!!!
+            assert forall solp :: validActivitiesSeq(solp) && isSolution(solp, activities[..index]) ==> castig(solWithoutK) >= castig(solp);
+
+            assume optimalSolution(solWithoutK, activities[..index]);
+            assume false;
+        }
+        else
+        {
+            assert isSolution(sol, activities[..index]) && optimalSolution(sol, activities[..index])
+                ==> |sol| == |takenActivities|;
+            assert true;
+        }
+    }
+    // assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1]) && activities[index] in sol ==> castig(takenActivities) >= castig(sol);
+    // pentru orice sol optima S pana la index+1, vedem daca ultima activitate face sau nu parte
+    // if ultima activitate face parte din sol opt S
+    // then S-ultima act trebuie sa fie optima pentru activities[..index]
+    // else isSolution(S, activities[..index]) && optimalSolution(S, activities[..index]) ==> |S| == |takenActivities| ==> optimalSolution(takenActivities, activities[..index+1])
 }
 
 method ASPGreedy(activities: seq<Activity>) returns (takenActivities: seq<Activity>)
@@ -175,24 +230,11 @@ method ASPGreedy(activities: seq<Activity>) returns (takenActivities: seq<Activi
     takenActivities := [];
     // Problema: expresiile de forma <forall act :: act in takenAct ==> act in activities> nu garanteaza si ca |takenAct| <= |activities|
     // Cauza posibila: by-default <seq> permite duplicate si am modificat acum cateva saptamani <takenActivities> sa fie <seq>, pentru ca am nevoie de o verificare pe indecsi
-    assert validActivitiesSeq([]);
-    assert disjointActivitiesSeq([]);
-    assert forall act :: act in takenActivities ==> act in [];
-    assert exists sol :: (validActivitiesSeq(sol) && isSolution(sol, []) ==> sol == []);
-    assert exists sol :: (validActivitiesSeq(sol) && isSolution(sol, []) ==> sol != []);
-    // de extras intr-o lema
-    assume forall sol :: validActivitiesSeq(sol) && isSolution(sol, []) ==> sol == [];
-    assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, []) ==> castig([]) >= castig(sol);
-    assert optimalSolution([], []);
-    assert validActivitiesSeq(takenActivities);
-    leadsToOptimal(takenActivities, activities, 0);
+    emptySolutionForEmptyEntry(takenActivities, activities[..0]);
+    leadsToOptimalWithTaking(takenActivities, activities, 0);
     takenActivities := [activities[0]];
     var lastTaken := activities[0];
     var index := 1;
-    // assert forall sol :: validActivitiesSeq(sol) && disjointActivitiesSeq(sol) && 
-    //                         (forall i :: 0 <= i < |sol| ==> sol[i] in activities[..1])  
-    //         ==> sol == [activities[0]] || sol == [];
-    // assert forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities[..index]) ==> sol == [activities[0]] || sol == [];
     assert optimalSolution(takenActivities, activities[..index]);
     while index < seqLen
         decreases seqLen - index
@@ -204,7 +246,7 @@ method ASPGreedy(activities: seq<Activity>) returns (takenActivities: seq<Activi
     {
         if canBeTaken(takenActivities, activities[index])
         {
-            leadsToOptimal(takenActivities, activities, index);
+            leadsToOptimalWithTaking(takenActivities, activities, index);
             takenActivities := takenActivities + [activities[index]];
             lastTaken := activities[index];
             index := index + 1;
