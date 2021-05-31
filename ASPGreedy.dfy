@@ -68,9 +68,13 @@ predicate disjointActivitiesSeq(activities: seq<Activity>)
 predicate isSolution(takenActivities: seq<Activity>, activities: seq<Activity>)
     requires validActivitiesSeq(takenActivities)
     requires validActivitiesSeq(activities)
+    // INTREBARE: dat fiind ca takenActivities e o secventa de activitati valide si respecta linia 76
+    // nu ar trebui sa se valideze si un <ensures sortedByActEnd(takenActivities)>?
 {
     // Intrebare: fac verificarea pentru multime de elemente disticte aici sau in <disjointActivitiesSeq>
+    // sa fie ordonate crescator strart2 > end1, start3>end2,...
     disjointActivitiesSeq(takenActivities) &&
+    (forall i1, i2 :: 0 <= i1 < i2 < |takenActivities| ==> takenActivities[i2].actStart > takenActivities[i1].actEnd) &&
     forall act :: act in takenActivities ==> act in activities
 }
 
@@ -108,6 +112,38 @@ lemma emptySolutionForEmptyEntry(takenActivities: seq<Activity>, activities: seq
     }
 }
 
+lemma solWithoutIndexIsSol(takenActivities: seq<Activity>, activities: seq<Activity>, index: int)
+    requires |activities| > 0
+    requires 0 <= index < |takenActivities|
+    requires validActivitiesSeq(takenActivities)
+    requires validActivitiesSeq(activities)
+    requires sortedByActEnd(activities)
+    requires isSolution(takenActivities, activities)
+    ensures isSolution(takenActivities[..index]+takenActivities[index+1..], activities)
+{
+    
+}
+
+lemma equalWinForOptimalSolution(optSol1: seq<Activity>, optSol2: seq<Activity>, activities: seq<Activity>)
+    requires |activities| > 0
+    requires validActivitiesSeq(optSol1)
+    requires validActivitiesSeq(optSol2)
+    requires validActivitiesSeq(activities)
+    requires sortedByActEnd(activities)
+    requires optimalSolution(optSol1, activities)
+    requires optimalSolution(optSol2, activities)
+    ensures castig(optSol1) == castig(optSol2)
+{
+    forall sol: seq<Activity> | validActivitiesSeq(sol) && isSolution(sol, activities)
+    ensures castig(optSol1) >= castig(sol) && castig(optSol2) >= castig(sol)
+    {
+        if (optimalSolution(sol, activities))
+        {
+            assert castig(optSol1) == castig(sol) && castig(optSol2) == castig(sol);
+        }
+    }
+}
+
     // Problema: momentan functioneaza, dar e posibil sa apara probleme dupa adaugarea conditiilor pentru multimi de
 // elemente distincte pe <takenActivities> si <activities>
 lemma leadsToOptimalWithTaking(takenActivities: seq<Activity>, activities: seq<Activity>, index: int)
@@ -134,6 +170,12 @@ lemma leadsToOptimalWithTaking(takenActivities: seq<Activity>, activities: seq<A
     assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
             && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
         ==> disjointActivitiesSeq(sol[..k] + sol[k+1..]);
+    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
+            && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
+        ==> forall act :: act in sol[..k] ==> act in activities[..index];
+    assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
+            && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
+        ==> forall act :: act in sol[k+1..] ==> act in activities[..index];
     assert forall sol, k :: validActivitiesSeq(sol) && isSolution(sol, activities[..index+1])
             && activities[index] in sol && 0 <= k < |sol| && sol[k] == activities[index]
         ==> forall act :: act in sol[..k] + sol[k+1..] ==> act in activities[..index];
@@ -169,39 +211,24 @@ lemma leadsToOptimalWithoutTaking(takenActivities: seq<Activity>, activities: se
     {
         if activities[index] in sol
         {
+            assert forall i1, i2 :: 0 <= i1 < i2 < |takenActivities| ==> sol[i2].actStart > sol[i1].actEnd && validActivity(sol[i1]) && validActivity(sol[i2])
+                ==> sortedByActEnd(sol);
             var k :| 0 <= k < |sol| && sol[k] == activities[index];
-            var solWithoutK := []; // sol - ultima activitate
+            var solWithoutK := sol[..k] + sol[k+1..];
+
             assert distinctActivitiesSeq(sol);
-            assume forall i :: 0 <= i < |sol| ==> sol[i] in activities;
-            if k == 0
-            {
-                assert [sol[k]] + sol[k+1..] == sol;
-                solWithoutK := sol[k+1..];
-            }
-            else
-            {
-                assert |sol[..k]| == k;
-                assert forall i :: 0 <= i < k ==> sol[i] in sol;
-                assert sol[k] in sol;
-                assert |sol[k+1..]| == |sol| - (k + 1);
-                if k == |sol|-1
-                {
-                    assert sol[..k] + [sol[k]] == sol;
-                    var solWithoutK := sol[..k];
-                }
-                else
-                {
-                    assert forall i :: k+1 <= i < |sol| ==> sol[i] in sol;
-                    assert sol[..k] + [sol[k]] + sol[k+1..] == sol;
-                    var solWithoutK := sol[..k] + sol[k+1..];
-                }
-            }
-            assert isSolution(solWithoutK, activities[..index]);
+            solWithoutIndexIsSol(sol, activities[..index+1], k);
+            assert isSolution(solWithoutK, activities[..index+1]);
+            assert activities[index] !in  activities[..index];
             // Problema!!!
+            //  - probabil am nevoie de o lema care sa spuna ca "fie oricare 2 sol, S1 si S2, optime pentru aceleasi date de intrare
+            //      atunci castig(S1) == castig(S2)" - necesar
+            // assert castig(sol)
+            assert forall solp :: validActivitiesSeq(solp) && isSolution(solp, activities[..index]) ==> castig(takenActivities) >= castig(solp);
             assert forall solp :: validActivitiesSeq(solp) && isSolution(solp, activities[..index]) ==> castig(solWithoutK) >= castig(solp);
 
-            assume optimalSolution(solWithoutK, activities[..index]);
-            assume false;
+            assert optimalSolution(solWithoutK, activities[..index]);
+            assert false;
         }
         else
         {
@@ -224,7 +251,7 @@ method ASPGreedy(activities: seq<Activity>) returns (takenActivities: seq<Activi
     requires sortedByActEnd(activities)
     ensures validActivitiesSeq(takenActivities)
     ensures disjointActivitiesSeq(takenActivities)
-    ensures isSolution(takenActivities, activities)
+    ensures optimalSolution(takenActivities, activities)
 {
     var seqLen := |activities|;
     takenActivities := [];
