@@ -314,20 +314,8 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
 {
     var seqLen := |activities|;
     taken := [];
-    // Problema: expresiile de forma <forall act :: act in takenAct ==> act in activities> nu garanteaza si ca |takenAct| <= |activities|
-    // Cauza posibila: by-default <seq> permite duplicate si am modificat acum cateva saptamani <taken> sa fie <seq>, pentru ca am nevoie de o verificare pe indecsi
     emptySolutionForEmptyEntry(taken, activities[..0]);
-    // optimalSubsolution(taken, activities, 0);
-    // assert forall optSol :: validActivitiesSeq(optSol) && optimalSolution(optSol, activities[0..]) && isSolution(taken + optSol, activities) ==> optimalSolution(taken + optSol, activities);
     var index := 0;
-    // leadsToOptimalWithTaking(taken, activities, 0);
-    // taken := [activities[0]];
-    // var index := 1;
-    // assert optimalSolution(taken, activities[..index]);
-    
-    // optimalSubsolution(taken, activities, index);
-    // assert forall optSol :: validActivitiesSeq(optSol) && optimalSolution(optSol, activities[index..]) && isSolution(taken + optSol, activities) ==> optimalSolution(taken + optSol, activities);
-    // assert forall optSol :: validActivitiesSeq(optSol) && optimalSolution(optSol, activities[index..]) ==> isAfter(optSol, taken);
     assert forall optSol :: validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken)
             ==> optimalSolution(taken + optSol, activities);
     while index < |activities|
@@ -357,7 +345,6 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
                     {
                         existsOptSolAfter(activities, taken);
                         var sol2 :| validActivitiesSeq(sol2) && isOptimalAfter(sol2, activities, taken);
-                        // assume forall act:Activity :: act in sol2[1..] ==> activities[index].actEnd < act.actStart;
                         var sol2p := [activities[index]] + sol2[1..];
                         assert validActivitiesSeq(sol2p);
                         assume disjointActivitiesSeq(sol2p);
@@ -391,6 +378,5 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
             index := index + 1;
             assert optimalSolution(taken, activities[..index]);
         }
-        // optimalSubsolution(taken, activities, index);
     }
 }
