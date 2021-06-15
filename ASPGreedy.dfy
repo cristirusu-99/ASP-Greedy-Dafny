@@ -458,7 +458,6 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
     {
         if canBeTaken(taken, activities[index])
         {
-            assert isAfter([activities[index]], taken);
             assert forall optSol :: validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken)
                 ==> optimalSolution(taken + optSol, activities);
 
@@ -471,22 +470,22 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
                 {
                     if !isOptimalAfter([activities[index]] + optSolp, activities, taken)
                     {
-                        // existsOptSolAfter(activities, taken);
-                        // var sol2 :| validActivitiesSeq(sol2) && isOptimalAfter(sol2, activities, taken);
-                        // var sol2p := [activities[index]] + sol2[1..];
+                        existsOptSolAfter(activities, taken);
+                        var sol2 :| validActivitiesSeq(sol2) && isOptimalAfter(sol2, activities, taken);
+                        var sol2p := [activities[index]] + sol2[1..];
 
-                        // assert disjointActivitiesSeq(sol2[1..]);
-                        // // !!! v
-                        // assume isAfter(sol2[1..], [activities[index]]);
-                        // someLemma(activities, sol2[1..], [activities[index]]);
-                        // assert isOptimalAfter(sol2p, activities, taken);
+                        assert disjointActivitiesSeq(sol2[1..]);
+                        // !!! v
+                        assume isAfter(sol2[1..], [activities[index]]);
+                        someLemma(activities, sol2[1..], [activities[index]]);
+                        assert isOptimalAfter(sol2p, activities, taken);
 
-                        // // !!! v
-                        // assume activities[index] in sol2p && castig(sol2p) > 1 + castig(optSolp);
+                        // !!! v
+                        assume activities[index] in sol2p && castig(sol2p) > 1 + castig(optSolp);
 
-                        // assert castig(sol2p[1..]) > castig(optSolp);
+                        assert castig(sol2p[1..]) > castig(optSolp);
 
-                        assume false;
+                        assert false;
                     }
                 }
             }
