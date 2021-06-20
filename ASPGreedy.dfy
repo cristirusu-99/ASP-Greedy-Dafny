@@ -49,10 +49,7 @@ predicate method overlappingActivities(a1: Activity, a2: Activity)
     requires validActivity(a1)
     requires validActivity(a2)
 {
-    // a1.actStart < a2.actEnd || a2.actStart < a1.actEnd //Kinda bad
-    // !(a1.actStart > a2.actEnd) && !(a1.actEnd < a2.actStart) //might be good - 3 erori in WithTaking
-    a1.actEnd > a2.actStart && a1.actStart < a2.actEnd //might be good (BEST ON PAPER!) - 3 erori in WithTaking
-    // a1.actStart < a2.actStart && a2.actEnd < a1.actEnd //worst on paper (trarteaza doar cazul de suprapunere prin incluziune) - 3 erori in WithTaking
+    a1.actEnd >= a2.actStart && a1.actStart <= a2.actEnd 
 }
 
 predicate disjointActivitiesSeq(activities: seq<Activity>)
@@ -324,6 +321,21 @@ lemma existsOptSolAfter(activities: seq<Activity>, taken: seq<Activity>)
     requires validActivitiesSeq(taken)
     ensures exists optSol :: validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken)
 {
+//     assert exists optSol :: validActivitiesSeq(optSol);
+
+// //  fail!
+//     assume exists optSol :: validActivitiesSeq(optSol) && disjointActivitiesSeq(optSol);
+//     assume exists optSol:seq<Activity> :: forall i1, i2 :: 0 <= i1 < i2 < |optSol| ==> optSol[i2].actStart > optSol[i1].actEnd;
+//     assume exists optSol:seq<Activity> :: forall act :: act in optSol ==> act in activities;
+
+//     assert exists optSol :: validActivitiesSeq(optSol) && isSolution(optSol, activities);
+// //  fail!
+//     assert exists optSol :: isAfter(optSol, taken);
+// //  fail!
+//     assert exists optSol :: (forall solp :: validActivitiesSeq(solp) && isSolution(solp, activities) && isAfter(solp, taken)
+//                                 ==> castig(optSol) >= castig(solp));
+
+//     assert exists optSol :: isOptimalAfter(optSol, activities, taken);
     assume false;
 }
 
@@ -430,6 +442,153 @@ lemma subseqOfSolAfterIsSolAfterExtended(activities: seq<Activity>, taken: seq<A
     assert forall i :: 0 <= i < |solAfter| ==> isAfter(solAfter[i..], taken + solAfter[..i]);
 }
 
+ghost method helperL1(optSol: seq<Activity>, sol2p: seq<Activity>, sol2: seq<Activity>, activities: seq<Activity>, index: int, taken: seq<Activity>)
+    requires 0 <= index < |activities|
+    requires |sol2p| > 0
+    requires |sol2| > 1
+    requires |taken| > 0
+    requires validActivitiesSeq(optSol)
+    requires validActivitiesSeq(sol2p)
+    requires validActivitiesSeq(sol2)
+    requires validActivitiesSeq(activities)
+    requires sortedByActEnd(activities)
+    requires validActivitiesSeq(taken)
+    requires canBeTaken(taken, activities[index])
+    requires isOptimalAfter(optSol, activities, taken + [activities[index]])
+    requires isOptimalAfter(sol2, activities, taken)
+    requires optimalSolution(taken, activities[..index])
+    ensures castig(sol2p[1..]) > castig(optSol);
+{
+    assert sol2[0].actEnd < sol2[1].actStart;
+    assert validActivity(sol2[1]);
+    // assert sol2[1].actStart < sol2[1].actEnd;
+    assert validActivity(sol2[0]);
+    assert sol2[0].actEnd < sol2[1].actEnd;
+    assert taken[|taken|-1].actEnd < sol2[0].actStart;
+    assert sol2[0].actStart < sol2[0].actEnd;
+    // sol2[i].start > taken[j].end, orice i, j
+    assert forall i, j :: 0<=i<|sol2| && 0<=j<|taken| ==> sol2[i].actStart > taken[j].actEnd;
+    // acts[index].start > taken[-1].end, deoarece canBeTaken
+    assert forall act :: act in activities[..index] ==> act.actEnd <= activities[index].actEnd;
+    assert forall i :: 0 <= i < |taken|-1 ==> taken[i].actEnd < taken[|taken|-1].actStart;
+    assert validActivity(taken[|taken|-1]);
+    // assert taken[|taken|-1].actStart < taken[|taken|-1].actEnd;
+    assert forall i :: 0 <= i < |taken|-1 ==> taken[i].actEnd < taken[|taken|-1].actEnd;
+    // because isSolution
+    assert forall i, j :: 0 <= i < j < |taken| ==> taken[i].actEnd < taken[j].actStart;
+    // because validActivitiesSeq
+    assert forall i :: 0 <= i < |taken| ==> taken[i].actStart < taken[i].actEnd;
+    // forall act: Activity | act in taken
+    // ensures act.actEnd < activities[index].actEnd
+    // {
+    //     if act.actEnd < activities[index].actStart
+    //     {
+    //         assert false;
+    //     }
+    //     else
+    //     {
+    //         if act.actStart > activities[index].actEnd
+    //         {
+    //             assume false;
+    //         }
+    //     }
+    // }
+    assert forall act :: act in taken ==> act.actEnd < activities[index].actStart || act.actStart > activities[index].actEnd;
+    assert forall i, j :: 0 <= i < j < |taken| ==> taken[i].actStart < taken[i].actEnd < taken[j].actStart < taken[j].actEnd;
+    assume forall act :: act in taken ==> act.actEnd < activities[index].actEnd;
+    // assert forall act :: act in taken ==>
+    assert activities[index].actStart > taken[|taken|-1].actEnd;
+    
+    // acts[index].end <= sol2[0].end
+    assert activities[index].actEnd <= sol2[0].actEnd;
+    assert isAfter(sol2[1..], [activities[index]]);
+    ifSolIsAfterAddingSolsStaysDisjoint(activities, sol2[1..], [activities[index]]);
+    assert isOptimalAfter(sol2p, activities, taken);
+
+    // !!! v
+    assume activities[index] in sol2p && castig(sol2p) > 1 + castig(optSol);
+
+    assume castig(sol2p[1..]) > castig(optSol);
+}
+
+//probably missing some "requies"
+ghost method helperL2(optSol: seq<Activity>, sol2p: seq<Activity>, sol2: seq<Activity>, activities: seq<Activity>, index: int, taken: seq<Activity>)
+    requires 0 <= index < |activities|
+    requires |sol2p| > 0
+    requires 0 <= |sol2| <= 1
+    requires |taken| > 0
+    requires validActivitiesSeq(optSol)
+    requires validActivitiesSeq(sol2p)
+    requires validActivitiesSeq(sol2)
+    requires validActivitiesSeq(activities)
+    requires sortedByActEnd(activities)
+    requires validActivitiesSeq(taken)
+    requires canBeTaken(taken, activities[index])
+    requires isOptimalAfter(optSol, activities, taken + [activities[index]])
+    requires isOptimalAfter(sol2, activities, taken)
+    requires optimalSolution(taken, activities[..index])
+    ensures castig(sol2p[1..]) > castig(optSol);
+{
+    assert isAfter(sol2[1..], [activities[index]]);
+    ifSolIsAfterAddingSolsStaysDisjoint(activities, sol2[1..], [activities[index]]);
+    assert isOptimalAfter(sol2p, activities, taken);
+    assert activities[index] in sol2p && castig(sol2p) > 1 + castig(optSol);
+    assert castig(sol2p[1..]) > castig(optSol);
+}
+
+// it works, take a long time tho
+lemma lema1(activities: seq<Activity>, taken: seq<Activity>, index: int)
+    requires 0 <= index < |activities|
+    requires validActivitiesSeq(activities)
+    requires validActivitiesSeq(taken)
+    requires sortedByActEnd(activities)
+    requires optimalSolution(taken, activities[..index])
+    requires forall optSol :: validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken)
+        ==> optimalSolution(taken + optSol, activities)
+    requires canBeTaken(taken, activities[index])
+    ensures forall optSol :: validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken + [activities[index]])
+                ==> optimalSolution(taken + [activities[index]] + optSol, activities);
+{
+    leadsToOptimalWithTaking(taken, activities, index);
+    existsOptSolAfter(activities, taken + [activities[index]]);
+    assert forall optSol :: validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken + [activities[index]])
+            ==> isSolution(taken + [activities[index]] + optSol, activities);
+    forall optSol: seq<Activity> | validActivitiesSeq(optSol) && isOptimalAfter(optSol, activities, taken + [activities[index]])
+    ensures forall sol :: validActivitiesSeq(sol) && isSolution(sol, activities)
+                ==> castig(taken + [activities[index]] + optSol) >= castig(sol)
+    {
+        associativity(taken, activities[index], optSol);
+        if !optimalSolution(taken + [activities[index]] + optSol, activities)
+        {
+            if !isOptimalAfter([activities[index]] + optSol, activities, taken)
+            {
+                existsOptSolAfter(activities, taken);
+                var sol2:seq<Activity> :| validActivitiesSeq(sol2) && isOptimalAfter(sol2, activities, taken);
+                var sol2p:seq<Activity> := [activities[index]] + sol2[1..];
+
+                assert disjointActivitiesSeq(sol2[1..]);
+                // !!! v
+                assert |sol2| > 1 ==> sol2[0].actEnd < sol2[1].actEnd;
+                if |sol2| > 1
+                {
+                    // helperL1(optSol, sol2p, sol2, activities, index, taken);
+                    assume false;
+                }
+                else
+                {
+                    assert isAfter(sol2[1..], [activities[index]]);
+                    ifSolIsAfterAddingSolsStaysDisjoint(activities, sol2[1..], [activities[index]]);
+                    assert isOptimalAfter(sol2p, activities, taken);
+                    assert activities[index] in sol2p && castig(sol2p) > 1 + castig(optSol);
+                    assert castig(sol2p[1..]) > castig(optSol);
+
+                    assert false;
+                }
+            }
+        }
+    }
+}
+
 
 method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
     requires |activities| > 0
@@ -463,61 +622,8 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: seq<Activity>)
                 ==> optimalSolution(taken + optSol, activities);
 
             leadsToOptimalWithTaking(taken, activities, index);
-            forall optSolp: seq<Activity> | validActivitiesSeq(optSolp) && isOptimalAfter(optSolp, activities, taken + [activities[index]])
-            ensures optimalSolution(taken + [activities[index]] + optSolp, activities)
-            {
-                associativity(taken, activities[index], optSolp);
-                if !optimalSolution(taken + [activities[index]] + optSolp, activities)
-                {
-                    if !isOptimalAfter([activities[index]] + optSolp, activities, taken)
-                    {
-                        existsOptSolAfter(activities, taken);
-                        var sol2:seq<Activity> :| validActivitiesSeq(sol2) && isOptimalAfter(sol2, activities, taken);
-                        var sol2p:seq<Activity> := [activities[index]] + sol2[1..];
-
-                        assert disjointActivitiesSeq(sol2[1..]);
-                        // !!! v
-                        assert |sol2| > 1 ==> sol2[0].actEnd < sol2[1].actEnd;
-                        if |sol2| > 1
-                        {
-                            assert sol2[0].actEnd < sol2[1].actEnd;
-                            assert taken[|taken|-1].actEnd < sol2[0].actStart;
-                            assert sol2[0].actStart < sol2[0].actEnd;
-                            // sol2[i].start > taken[j].end, orice i, j
-                            assert forall i, j :: 0<=i<|sol2| && 0<=j<|taken| ==> sol2[i].actStart > taken[j].actEnd;
-                            // acts[index].start > taken[-1].end, deoarece canBeTaken
-                            assert activities[index].actStart > taken[|taken|-1].actEnd;
-                            // acts[index].end <= sol2[0].end
-                            assert activities[index].actEnd <= sol2[0].actEnd;
-
-                            assume isAfter(sol2[1..], [activities[index]]);
-                            ifSolIsAfterAddingSolsStaysDisjoint(activities, sol2[1..], [activities[index]]);
-                            assert isOptimalAfter(sol2p, activities, taken);
-
-                            // // !!! v
-                            assume activities[index] in sol2p && castig(sol2p) > 1 + castig(optSolp);
-
-                            assert castig(sol2p[1..]) > castig(optSolp);
-
-                            assume false;
-                        }
-                        else
-                        {
-                            assume isAfter(sol2[1..], [activities[index]]);
-                            ifSolIsAfterAddingSolsStaysDisjoint(activities, sol2[1..], [activities[index]]);
-                            assert isOptimalAfter(sol2p, activities, taken);
-
-                            // // !!! v
-                            assume activities[index] in sol2p && castig(sol2p) > 1 + castig(optSolp);
-
-                            assert castig(sol2p[1..]) > castig(optSolp);
-
-                            assume false;
-                        }
-                        // assume false;
-                    }
-                }
-            }
+            lema1(activities, taken, index);
+            
             taken := taken + [activities[index]];
             index := index + 1;
             assert optimalSolution(taken, activities[..index]);
