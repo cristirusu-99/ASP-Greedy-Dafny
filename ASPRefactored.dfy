@@ -1,78 +1,77 @@
 datatype Activity = Pair(start: int, end: int)
 
-predicate sortedByEnd(s: seq<Activity>)
-    requires validActivitiesSeq(s)
+predicate isSortedByEnd(s: seq<Activity>)
+    requires isValidActivitiesSeq(s)
 {
     forall i, j :: 0 <= i < j < |s| ==> s[i].end <= s[j].end
 }
 
-predicate validActivity(act: Activity)
+predicate isValidActivity(act: Activity)
 {
     act.start < act.end
 }
 
-predicate validActivitiesSeq(activities: seq<Activity>)
+predicate isValidActivitiesSeq(activities: seq<Activity>)
 {
-    forall act :: act in activities ==> validActivity(act)
+    forall act :: act in activities ==> isValidActivity(act)
 }
 
-predicate validIndex(activities: seq<Activity>, index: int)
-    requires validActivitiesSeq(activities)
+predicate isValidIndex(activities: seq<Activity>, index: int)
+    requires isValidActivitiesSeq(activities)
 {
     0 <= index < |activities|
 }
 
 predicate method overlappingActivities(a1: Activity, a2: Activity)
-    requires validActivity(a1)
-    requires validActivity(a2)
+    requires isValidActivity(a1)
+    requires isValidActivity(a2)
 {
     a1.end >= a2.start && a1.start <= a2.end 
 }
 
 predicate isSolution(activities: seq<Activity>, sol: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     ensures isSolution(activities, sol)
         ==> forall i, j :: i in sol && j in sol && i != j
-            ==> validIndex(activities, i) && validIndex(activities, j) && !overlappingActivities(activities[i], activities[j])
+            ==> isValidIndex(activities, i) && isValidIndex(activities, j) && !overlappingActivities(activities[i], activities[j])
 {
-    forall i :: i in sol ==> validIndex(activities, i) &&
-    forall i, j :: i in sol && j in sol && i != j ==> validIndex(activities, i) && validIndex(activities, j) && !overlappingActivities(activities[i], activities[j])
+    forall i :: i in sol ==> isValidIndex(activities, i) &&
+    forall i, j :: i in sol && j in sol && i != j ==> isValidIndex(activities, i) && isValidIndex(activities, j) && !overlappingActivities(activities[i], activities[j])
 }
 
 predicate method canBeTaken(activities: seq<Activity>, taken: set<int>, i: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, i)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, i)
     requires isSolution(activities, taken)
 {
     forall i' :: i' in taken ==> !overlappingActivities(activities[i], activities[i'])
 }
 
-predicate optimalSolution(activities: seq<Activity>, sol: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+predicate isOptimalSolution(activities: seq<Activity>, sol: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
 {
     isSolution(activities, sol) &&
     forall sol' :: isSolution(activities, sol') ==> castig(activities, sol) >= castig(activities, sol') 
 }
 
 predicate isAfter(activities: seq<Activity>, after:set<int>, taken: set<int>, index: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires 0 <= index <= |activities|
     requires isSolution(activities, after)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
-    // TO DO de scos ca lema
-    // ensures isAfter(activities, after, index) ==> forall i :: i in after ==> i >= index && (i > index ==> activities[i].start > activities[index].end)
+    ensures isAfter(activities, after, taken, index) ==> nonOverlappingSols(activities, taken, after) ==> isSolution(activities, taken + after)
 {
     nonOverlappingSols(activities, taken, after) && forall i :: i in after ==> i >= index
 }
 
 predicate isOptimalAfter(activities:seq<Activity>, sol:set<int>, taken: set<int>, index:int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, taken)
     requires 0 <= index <= |activities|
     requires forall i :: i in taken ==> i < index
@@ -83,9 +82,9 @@ predicate isOptimalAfter(activities:seq<Activity>, sol:set<int>, taken: set<int>
 }
 
 predicate isFirstInSol(activities: seq<Activity>, sol: set<int>, index: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, sol)
 {
     index in sol &&
@@ -93,8 +92,8 @@ predicate isFirstInSol(activities: seq<Activity>, sol: set<int>, index: int)
 }
 
 predicate nonOverlappingSols(activities: seq<Activity>, sol1: set<int>, sol2: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol1)
     requires isSolution(activities, sol2)
     ensures nonOverlappingSols(activities, sol1, sol2) ==> isSolution(activities, sol1 + sol2)
@@ -103,23 +102,33 @@ predicate nonOverlappingSols(activities: seq<Activity>, sol1: set<int>, sol2: se
 }
 
 predicate hasSolutionOfCastigK(activities: seq<Activity>, k: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
 {
     exists sol :: isSolution(activities, sol) && |sol| == k
 }
 
+predicate hasSolAfterOfCastigK(activities: seq<Activity>, taken:set<int>, index: int, k: int)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires 0 <= index <= |activities|
+    requires isSolution(activities, taken)
+    requires forall i :: i in taken ==> i < index
+{
+    exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && |sol| == k
+}
+
 function castig(activities: seq<Activity>, sol: set<int>): int
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol)
 {
     |sol|
 }
 
-// the following code block is taken from an external online souce
+// the following code block is taken from an external online source
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-ghost method max2(x: int, y: int) returns (r: int)
+ghost method maxOf2(x: int, y: int) returns (r: int)
     ensures r >= x
     ensures r >= y
     ensures r == y || r == x
@@ -134,7 +143,7 @@ ghost method max2(x: int, y: int) returns (r: int)
     }
 }
 
-ghost method maxSet(s: set<int>) returns (r: int)
+ghost method maxOfSet(s: set<int>) returns (r: int)
     requires |s| > 0
     ensures r in s
     ensures forall a :: a in s ==> a <= r
@@ -151,8 +160,8 @@ ghost method maxSet(s: set<int>) returns (r: int)
     }
     else
     {
-        var m2 := maxSet(s - {x});
-        r := max2(x, m2);
+        var m2 := maxOfSet(s - {x});
+        r := maxOf2(x, m2);
         assert forall a :: a in s ==> a == x || a in (s - {x});
     }
 }
@@ -167,7 +176,7 @@ lemma setSizeLimit(s: set<int>, n: int)
     }
     else
     {
-        var x := maxSet(s);
+        var x := maxOfSet(s);
         setSizeLimit(s - {x}, n - 1);
     }
 }
@@ -177,8 +186,8 @@ lemma setSizeLimit(s: set<int>, n: int)
 lemma emptySolutionForEmptyEntry(activities: seq<Activity>, sol: set<int>)
     requires sol == {}
     requires activities == []
-    requires validActivitiesSeq(activities)
-    ensures optimalSolution(activities, sol)
+    requires isValidActivitiesSeq(activities)
+    ensures isOptimalSolution(activities, sol)
 {
     assert isSolution(activities, sol);
     forall sol':set<int> | isSolution(activities, sol')
@@ -187,31 +196,31 @@ lemma emptySolutionForEmptyEntry(activities: seq<Activity>, sol: set<int>)
         if (sol' != {})
         {
             var x :| x in sol';
-            assert validIndex(activities, x);
+            assert isValidIndex(activities, x);
             assert false;
         }
     }
 }
 
 lemma solWithoutIndexIsSol(activities: seq<Activity>, sol: set<int>, index: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol)
     ensures isSolution(activities, sol - {index})
-{// trivial
+{
 }
 
-lemma equalWinForOptimalSolution(activities: seq<Activity>, optSol1: set<int>, optSol2: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires optimalSolution(activities, optSol1)
-    requires optimalSolution(activities, optSol2)
+lemma equalWinForisOptimalSolution(activities: seq<Activity>, optSol1: set<int>, optSol2: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isOptimalSolution(activities, optSol1)
+    requires isOptimalSolution(activities, optSol2)
     ensures castig(activities, optSol1) == castig(activities, optSol2)
 {
     forall sol: set<int> | isSolution(activities, sol)
     ensures castig(activities, optSol1) >= castig(activities, sol) && castig(activities, optSol2) >= castig(activities, sol)
     {
-        if optimalSolution(activities, sol)
+        if isOptimalSolution(activities, sol)
         {
             assert castig(activities, optSol1) == castig(activities, sol) &&
                 castig(activities, optSol2) == castig(activities, sol);
@@ -220,8 +229,8 @@ lemma equalWinForOptimalSolution(activities: seq<Activity>, optSol1: set<int>, o
 }
 
 lemma allSolsHaveCastigBetween0AndN(activities: seq<Activity>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     ensures forall sol :: isSolution(activities, sol) ==> 0 <= castig(activities, sol) <= |activities|
 {
     assert forall sol :: isSolution(activities, sol) ==> castig(activities, sol) >= 0;
@@ -237,12 +246,12 @@ lemma allSolsHaveCastigBetween0AndN(activities: seq<Activity>)
 }
 
 lemma notExistsSolOfCastigBiggerThanK(activities: seq<Activity>, sol: set<int>, i: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol)
     requires castig(activities, sol) == i
     requires !(exists sol :: isSolution(activities, sol) && castig(activities, sol) > i)
-    ensures optimalSolution(activities, sol)
+    ensures isOptimalSolution(activities, sol)
 {
     forall solp: set<int> | isSolution(activities, solp)
     ensures castig(activities, sol) >= castig(activities, solp)
@@ -252,12 +261,30 @@ lemma notExistsSolOfCastigBiggerThanK(activities: seq<Activity>, sol: set<int>, 
     }
 }
 
+lemma notExistsSolAfterOfCastigBiggerThanK(activities: seq<Activity>, sol: set<int>, taken: set<int>, index: int, i: int)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires 0 <= index <= |activities|
+    requires isSolution(activities, sol)
+    requires isSolution( activities, taken)
+    requires forall i :: i in taken ==> i < index
+    requires isAfter(activities, sol, taken, index)
+    requires castig(activities, sol) == i
+    requires !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > i)
+    ensures isOptimalAfter(activities, sol, taken, index)
+{
+    forall solp: set<int> | isSolution(activities, solp) && isAfter(activities, solp, taken, index)
+    ensures castig(activities, sol) >= castig(activities, solp)
+    {
+        assert castig(activities, solp) <= i;
+        assert castig(activities, sol) == i;
+    }
+}
 
-// TO DO demonstratie
-lemma existsOptimalSolution(activities: seq<Activity>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    ensures exists optSol :: optimalSolution(activities, optSol)
+lemma existsisOptimalSolution(activities: seq<Activity>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    ensures exists optSol :: isOptimalSolution(activities, optSol)
 {
     var i := |activities|;
     allSolsHaveCastigBetween0AndN(activities);
@@ -267,9 +294,9 @@ lemma existsOptimalSolution(activities: seq<Activity>)
     while i >= 0
         decreases i
         invariant -1 <= i <= |activities|
-        invariant (exists sol :: optimalSolution(activities, sol)) || !(exists sol :: isSolution(activities, sol) && castig(activities, sol) > i)
+        invariant (exists sol :: isOptimalSolution(activities, sol)) || !(exists sol :: isSolution(activities, sol) && castig(activities, sol) > i)
     {
-        if exists sol :: optimalSolution(activities, sol)
+        if exists sol :: isOptimalSolution(activities, sol)
         {
             i := i - 1;
         }
@@ -280,9 +307,8 @@ lemma existsOptimalSolution(activities: seq<Activity>)
             {
                 var sol: set<int> :| isSolution(activities, sol) && castig(activities, sol) == i;
                 notExistsSolOfCastigBiggerThanK(activities, sol, i);
-                assert optimalSolution(activities, sol);
+                assert isOptimalSolution(activities, sol);
                 i := i - 1;
-                // assume false;
             }
             else
             {
@@ -294,45 +320,83 @@ lemma existsOptimalSolution(activities: seq<Activity>)
         }
     }
     assert i == -1;
-    if !(exists sol :: optimalSolution(activities, sol)) 
+    if !(exists sol :: isOptimalSolution(activities, sol)) 
     {
         var sol := {};
         assert isSolution(activities, sol);
         assert castig(activities, sol) == 0;
         assert !(exists sol :: isSolution(activities, sol) && castig(activities, sol) > -1);
         assert forall sol :: isSolution(activities, sol) ==> castig(activities, sol) <= -1;
-        // assert forall sol :: isSolution(activities, sol) ==> 0 <= castig(activities, sol) <= |activities|;
-        // assume false;
     }
 }
 
-// TO DO demonstratie
 lemma existsOptSolAfter(activities: seq<Activity>, taken: set<int>, index:int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires 0 <= index <= |activities|
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     ensures exists optSol :: isOptimalAfter(activities, optSol, taken, index)
 {
-    assume false;
+    var i := |activities|;
+    allSolsHaveCastigBetween0AndN(activities);
+    assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > |activities|);
+    assert i == |activities|;
+    assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > i);
+    while i >= 0
+        decreases i
+        invariant -1 <= i <= |activities|
+        invariant (exists sol :: isOptimalAfter(activities, sol, taken, index)) || !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > i)
+    {
+        if exists sol :: isOptimalAfter(activities, sol, taken, index)
+        {
+            i := i - 1;
+        }
+        else
+        {
+            assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > i);
+            if hasSolAfterOfCastigK(activities, taken, index, i)
+            {
+                var sol: set<int> :| isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) == i;
+                notExistsSolAfterOfCastigBiggerThanK(activities, sol, taken, index, i);
+                assert isOptimalAfter(activities, sol, taken, index);
+                i := i - 1;
+            }
+            else
+            {
+                assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > i);
+                assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) == i);
+                assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) >= i);
+                i := i - 1;
+            }
+        }
+    }
+    assert i == -1;
+    if !(exists sol :: isOptimalAfter(activities, sol, taken, index)) 
+    {
+        var sol := {};
+        assert isSolution(activities, sol);
+        assert isAfter(activities, sol, taken, index);
+        assert castig(activities, sol) == 0;
+        assert !(exists sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) && castig(activities, sol) > -1);
+        assert forall sol :: isSolution(activities, sol) && isAfter(activities, sol, taken, index) ==> castig(activities, sol) <= -1;
+    }
 }
 
 lemma associativity(activities: seq<Activity>, taken: set<int>, index: int, optAfter: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires isSolution(activities, optAfter)
     ensures (taken + {index}) + optAfter == taken + ({index} + optAfter)
-{// trivial
+{
 } 
 
-// TO DO demonstratie
 lemma optimalSubstructure(activities: seq<Activity>, sol: set<int>, taken: set<int>, index: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires isOptimalAfter(activities, sol, taken, index)
@@ -340,7 +404,7 @@ lemma optimalSubstructure(activities: seq<Activity>, sol: set<int>, taken: set<i
     requires isFirstInSol(activities, sol, index)
     ensures isOptimalAfter(activities, sol - {index}, taken + {index}, index + 1)
 {
-        indexesInSolSortedByEnd(activities, sol);
+        indexesInSolisSortedByEnd(activities, sol);
         indexesInSolStartOneAfterAnother(activities, sol);
         assert isSolution(activities, sol - {index});
         assert isAfter(activities, sol - {index}, taken + {index}, index + 1);
@@ -359,21 +423,18 @@ lemma optimalSubstructure(activities: seq<Activity>, sol: set<int>, taken: set<i
         }
 }
 
-// TO DO demonstratie
 lemma existsFirst(activities: seq<Activity>, sol: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol)
     requires |sol| > 0
-    ensures exists first :: validIndex(activities, first) && isFirstInSol(activities, sol, first)
-    // first in sol && validIndex(activities, first) &&
-    //     (forall i :: i in sol && i != first ==> first < i)
+    ensures exists first :: isValidIndex(activities, first) && isFirstInSol(activities, sol, first)
 {
     var first :| first in sol;
-    assert validIndex(activities, first);
+    assert isValidIndex(activities, first);
     if isFirstInSol(activities, sol, first)
     {
-        assert first in sol && validIndex(activities, first) &&
+        assert first in sol && isValidIndex(activities, first) &&
             (forall i :: i in sol && i != first ==> first < i);
     }
     else
@@ -382,13 +443,13 @@ lemma existsFirst(activities: seq<Activity>, sol: set<int>)
         var x :| x in sol - {first} && x < first;
         assert |sol-{first}| > 0;
         existsFirst(activities, sol - {first});
-        var first' :| validIndex(activities, first') && isFirstInSol(activities, sol - {first}, first');
+        var first' :| isValidIndex(activities, first') && isFirstInSol(activities, sol - {first}, first');
         if first' == x
         {
             assert first' <= x;
             assert first' < first;
             assert sol == (sol - {first}) + {first};
-            assert validIndex(activities, first');
+            assert isValidIndex(activities, first');
             assert isFirstInSol(activities, sol, first');
         }
         else
@@ -400,9 +461,9 @@ lemma existsFirst(activities: seq<Activity>, sol: set<int>)
     }
 }
 
-lemma indexesInSolSortedByEnd(activities: seq<Activity>, sol: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+lemma indexesInSolisSortedByEnd(activities: seq<Activity>, sol: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol)
     ensures forall i, j :: i in sol && j in sol && i < j ==> activities[i].end < activities[j].end
 {
@@ -426,8 +487,8 @@ lemma indexesInSolSortedByEnd(activities: seq<Activity>, sol: set<int>)
 }
 
 lemma indexesInSolStartOneAfterAnother(activities: seq<Activity>, sol: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires isSolution(activities, sol)
     ensures forall i, j :: i in sol && j in sol && i > j ==> activities[i].start > activities[j].end
 {
@@ -442,30 +503,30 @@ lemma indexesInSolStartOneAfterAnother(activities: seq<Activity>, sol: set<int>)
     }
 }
 
-lemma helperL1a(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>, firstInSol2: int, sol2p: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma greedyChoiceSubsolutionIsBetterThanAnyNonEmptySubsolutions(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>, firstInSol2: int, sol2p: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
     requires isOptimalAfter(activities, sol2, taken, index)
     requires |sol2| > 1
-    requires validIndex(activities, firstInSol2)
+    requires isValidIndex(activities, firstInSol2)
     requires firstInSol2 in sol2
     requires isFirstInSol(activities, sol2, firstInSol2)
     requires sol2p == sol2 - {firstInSol2} + {index}
     ensures isOptimalAfter(activities, {index} + optSolp, taken, index)
 {
-    indexesInSolSortedByEnd(activities, sol2);
+    indexesInSolisSortedByEnd(activities, sol2);
     indexesInSolStartOneAfterAnother(activities, sol2);
     assert forall i :: i in sol2 && i != firstInSol2 ==> i > firstInSol2;
     assert forall i :: i in sol2p && i != index ==> i > index;
     assert forall i :: i in sol2p && i != index
-        ==> validIndex(activities, i) && validIndex(activities, index) && !overlappingActivities(activities[i], activities[index]);
+        ==> isValidIndex(activities, i) && isValidIndex(activities, index) && !overlappingActivities(activities[i], activities[index]);
     assert isSolution(activities, sol2p);
 
     assert isFirstInSol(activities, sol2p, index);
@@ -473,7 +534,7 @@ lemma helperL1a(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert forall i :: i in taken ==> activities[i].end <= activities[index].end;
     assert forall i :: i in sol2p && i != index ==> activities[i].start > activities[index].end;
     assert isSolution(activities, taken + {index});
-    indexesInSolSortedByEnd(activities, taken + {index});
+    indexesInSolisSortedByEnd(activities, taken + {index});
     indexesInSolStartOneAfterAnother(activities, taken + {index});
     assert forall i :: i in taken ==> i < index;
     assert forall i, j :: i in taken + {index} && j in taken + {index} && j > i ==> activities[j].start > activities[i].end;
@@ -485,7 +546,7 @@ lemma helperL1a(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert isOptimalAfter(activities, sol2p - {index}, taken + {index}, index + 1);
     assert castig(activities, sol2p - {index}) == castig(activities, optSolp);
 
-    indexesInSolSortedByEnd(activities, optSolp);
+    indexesInSolisSortedByEnd(activities, optSolp);
     indexesInSolStartOneAfterAnother(activities, optSolp);
     assert forall i :: i in optSolp && i != index ==> i > index;
     
@@ -493,26 +554,26 @@ lemma helperL1a(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert castig(activities, optSolp + {index}) == castig(activities, optSolp) + 1;
 
     assert forall i :: i in optSolp
-        ==> validIndex(activities, i) && validIndex(activities, index) && !overlappingActivities(activities[i], activities[index]);
+        ==> isValidIndex(activities, i) && isValidIndex(activities, index) && !overlappingActivities(activities[i], activities[index]);
     assert isSolution(activities, {index} + optSolp);
 
     assert castig(activities, sol2p) == castig(activities, {index} + optSolp);
     assert isOptimalAfter(activities, {index} + optSolp, taken, index);
 }
 
-lemma helperL1b(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>, firstInSol2: int, sol2p: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma greedyChoiceSubsolutionIsBetterThanSingletonSubsolutions(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>, firstInSol2: int, sol2p: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
     requires isOptimalAfter(activities, sol2, taken, index)
     requires |sol2| == 1
-    requires validIndex(activities, firstInSol2)
+    requires isValidIndex(activities, firstInSol2)
     requires firstInSol2 in sol2
     requires isFirstInSol(activities, sol2, firstInSol2)
     requires sol2p == sol2 - {firstInSol2} + {index}
@@ -523,7 +584,7 @@ lemma helperL1b(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert forall i :: i in taken ==> activities[i].end <= activities[index].end;
     assert forall i :: i in sol2p && i != index ==> activities[i].start > activities[index].end;
     assert isSolution(activities, taken + {index});
-    indexesInSolSortedByEnd(activities, taken + {index});
+    indexesInSolisSortedByEnd(activities, taken + {index});
     indexesInSolStartOneAfterAnother(activities, taken + {index});
     assert forall i :: i in taken ==> i < index;
     assert forall i, j :: i in taken + {index} && j in taken + {index} && j > i ==> activities[j].start > activities[i].end;
@@ -538,15 +599,15 @@ lemma helperL1b(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert isOptimalAfter(activities, {index} + optSolp, taken, index);
 }
 
-lemma helperL2a(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma greedyChoiceSubsolutionIsBetterThanNonEmptySubsolutions(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
     requires isOptimalAfter(activities, sol2, taken, index)
     requires |sol2| > 0
@@ -559,23 +620,23 @@ lemma helperL2a(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert isFirstInSol(activities, sol2, firstInSol2) ==> firstInSol2 in sol2 && (forall i :: i in sol2 && i != firstInSol2 ==> firstInSol2 < i);
     if |sol2| > 1
     {
-        helperL1a(optSolp, activities, index, taken, sol2, firstInSol2, sol2p);
+        greedyChoiceSubsolutionIsBetterThanAnyNonEmptySubsolutions(optSolp, activities, index, taken, sol2, firstInSol2, sol2p);
     }
     else
     {
-        helperL1b(optSolp, activities, index, taken, sol2, firstInSol2, sol2p);
+        greedyChoiceSubsolutionIsBetterThanSingletonSubsolutions(optSolp, activities, index, taken, sol2, firstInSol2, sol2p);
     }
 }
 
-lemma helperL2b(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma greedyChoiceSubsolutionIsBetterThanEmptySubsolution(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>, sol2:set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
     requires isOptimalAfter(activities, sol2, taken, index)
     requires |sol2| == 0
@@ -589,15 +650,15 @@ lemma helperL2b(optSolp: set<int>, activities: seq<Activity>, index: int, taken:
     assert isOptimalAfter(activities, {index} + optSolp, taken, index);
 }
 
-lemma helperL3(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma subsolutionWithGreedyChoiceIsOptimalSubsolution(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
     ensures isOptimalAfter(activities, {index} + optSolp, taken, index)
 {
@@ -605,30 +666,30 @@ lemma helperL3(optSolp: set<int>, activities: seq<Activity>, index: int, taken: 
     var sol2:set<int> :| isOptimalAfter(activities, sol2, taken, index);
     if |sol2| > 0
     {
-        helperL2a(optSolp, activities, index, taken, sol2);
+        greedyChoiceSubsolutionIsBetterThanNonEmptySubsolutions(optSolp, activities, index, taken, sol2);
     }
     else
     {
-        helperL2b(optSolp, activities, index, taken, sol2);
+        greedyChoiceSubsolutionIsBetterThanEmptySubsolution(optSolp, activities, index, taken, sol2);
     }
 }
 
-lemma helperL4(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma ensuringOptimalityOfGreedyChoiceSolution(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
-    requires !optimalSolution(activities, taken + {index} + optSolp)
+    requires !isOptimalSolution(activities, taken + {index} + optSolp)
     ensures false
 {
     if !isOptimalAfter(activities, {index} + optSolp, taken, index)
     {
-        helperL3(optSolp, activities, index, taken);
+        subsolutionWithGreedyChoiceIsOptimalSubsolution(optSolp, activities, index, taken);
         assert false;
     }
     else
@@ -639,7 +700,7 @@ lemma helperL4(optSolp: set<int>, activities: seq<Activity>, index: int, taken: 
         assert forall i, j :: i in taken && j in optSolp ==> activities[i].end < activities[j].start;
         assert forall i :: i in taken ==> i < index;
         assert forall i :: i in taken ==> activities[i].end <= activities[index].end;
-        assert forall i :: i in taken ==> validActivity(activities[i]) && activities[i].end > activities[i].start;
+        assert forall i :: i in taken ==> isValidActivity(activities[i]) && activities[i].end > activities[i].start;
         assert forall i :: i in taken && (activities[i].start > activities[index].end) ==> activities[i].end > activities[i].start > activities[index].end;
         assert forall i :: i in taken ==> (activities[i].end < activities[index].start) || (activities[i].start > activities[index].end);
         assert nonOverlappingSols(activities, taken, {index} + optSolp);
@@ -647,48 +708,48 @@ lemma helperL4(optSolp: set<int>, activities: seq<Activity>, index: int, taken: 
     }
 }
 
-lemma helperL5(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma solutionWithGreedyChoiceIsOptimal(optSolp: set<int>, activities: seq<Activity>, index: int, taken: set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires canBeTaken(activities, taken, index)
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-        ==> optimalSolution(activities, taken + optSol)
+        ==> isOptimalSolution(activities, taken + optSol)
     requires isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
-    ensures optimalSolution(activities, taken + {index} + optSolp)
+    ensures isOptimalSolution(activities, taken + {index} + optSolp)
 {
-    if !optimalSolution(activities, taken + {index} + optSolp)
+    if !isOptimalSolution(activities, taken + {index} + optSolp)
     {
-        helperL4(optSolp, activities, index, taken);
+        ensuringOptimalityOfGreedyChoiceSolution(optSolp, activities, index, taken);
         assert false;
     }
 }
 
-lemma lema1(activities: seq<Activity>, taken: set<int>, index: int)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma greedyChoiceLeadsToisOptimalSolution(activities: seq<Activity>, taken: set<int>, index: int)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-                ==> optimalSolution(activities, taken + optSol);
+                ==> isOptimalSolution(activities, taken + optSol);
     requires canBeTaken(activities, taken, index)
     ensures forall optSolp :: isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
-                ==> optimalSolution(activities, taken + {index} + optSolp)
+                ==> isOptimalSolution(activities, taken + {index} + optSolp)
 {
     forall optSolp: set<int> | isOptimalAfter(activities, optSolp, taken + {index}, index + 1)
-    ensures optimalSolution(activities, taken + {index} + optSolp);
+    ensures isOptimalSolution(activities, taken + {index} + optSolp);
     {
-        helperL5(optSolp, activities, index, taken);
+        solutionWithGreedyChoiceIsOptimal(optSolp, activities, index, taken);
     }
 }
 
-lemma lema2(activities: seq<Activity>, taken: set<int>, index: int, opt': set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    requires validIndex(activities, index)
+lemma notTakingLeadsToisOptimalSolution(activities: seq<Activity>, taken: set<int>, index: int, opt': set<int>)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    requires isValidIndex(activities, index)
     requires isSolution(activities, taken)
     requires forall i :: i in taken ==> i < index
     requires isOptimalAfter(activities, opt', taken, index + 1)
@@ -713,8 +774,8 @@ lemma lema2(activities: seq<Activity>, taken: set<int>, index: int, opt': set<in
 }
 
 lemma lastSolpIsVoid(activities: seq<Activity>, taken: set<int>, index:int, solp: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
     requires index == |activities|
     requires isSolution(activities, taken)
     requires isSolution(activities, solp)
@@ -725,36 +786,36 @@ lemma lastSolpIsVoid(activities: seq<Activity>, taken: set<int>, index:int, solp
 }
 
 method ASPGreedy(activities: seq<Activity>) returns (taken: set<int>)
-    requires validActivitiesSeq(activities)
-    requires sortedByEnd(activities)
-    ensures optimalSolution(activities, taken)
+    requires isValidActivitiesSeq(activities)
+    requires isSortedByEnd(activities)
+    ensures isOptimalSolution(activities, taken)
 {
     taken := {};
     emptySolutionForEmptyEntry(activities[..0], taken);
     var index := 0;
     assert forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-            ==> optimalSolution(activities, taken + optSol);
+            ==> isOptimalSolution(activities, taken + optSol);
     while index < |activities|
         decreases |activities| - index
         invariant 0 <= index <= |activities|
         invariant isSolution(activities[..index], taken)
         invariant forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-            ==> optimalSolution(activities, taken + optSol)
+            ==> isOptimalSolution(activities, taken + optSol)
     {
         if canBeTaken(activities, taken, index)
         {
-            lema1(activities, taken, index);
+            greedyChoiceLeadsToisOptimalSolution(activities, taken, index);
             
             taken := taken + {index};
             index := index + 1;
             assert forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-                ==> optimalSolution(activities, taken + optSol);
+                ==> isOptimalSolution(activities, taken + optSol);
         }
         else
         {
             index := index + 1;
             assert forall optSol :: isOptimalAfter(activities, optSol, taken, index)
-                ==> (lema2(activities, taken, index - 1, optSol); isOptimalAfter(activities, optSol, taken, index - 1)) ==> optimalSolution(activities, taken + optSol);
+                ==> (notTakingLeadsToisOptimalSolution(activities, taken, index - 1, optSol); isOptimalAfter(activities, optSol, taken, index - 1)) ==> isOptimalSolution(activities, taken + optSol);
         }
     }
     forall solp: set<int> | isSolution(activities, solp) && isAfter(activities, solp, taken, index)
@@ -763,5 +824,5 @@ method ASPGreedy(activities: seq<Activity>) returns (taken: set<int>)
         lastSolpIsVoid(activities, taken, index, solp);
     }
     assert isOptimalAfter(activities, {}, taken, index);
-    assert optimalSolution(activities, taken);
+    assert isOptimalSolution(activities, taken);
 }
